@@ -22,8 +22,7 @@ rec_dawn = config["dawn"]
 rec_dusk = config["dusk"]
 rec_sunrise = config["sunrise"]
 rec_sunset = config["sunset"]
-rec_dict = {'Dawn': str(rec_dawn), 'Dusk': str(rec_dusk), 'Sunrise':
-        str(rec_sunrise), 'Sunset': str(rec_sunset)}
+rec_dict = {'Dawn':rec_dawn, 'Dusk':rec_dusk, 'Sunrise':rec_sunrise, 'Sunset':rec_sunset}
 print(rec_dict)
 
 CAM_RESOLUTION = config["resolution"]
@@ -38,7 +37,7 @@ print('{0} seconds per exposure'.format(tl_interval))
 print('{0} minutes total time lapse'.format(rec_time))
 
 for k, v in rec_dict.items():
-    if v: print('Recording enabled for {0}'.format(k))
+    if v == True: print('Recording enabled for {0}'.format(k))
 
 def set_time():
     today = datetime.date.today()
@@ -61,9 +60,7 @@ def set_time():
     return sched_dict, now, today
 
 def tl_capture():
-    for i, filename in enumerate(
-            camera.capture_continuous('image{counter:04d}.jpg')):
-        print(filename)
+    camera.capture_continuous('image{counter:04d}.jpg')
     return
 
 def check_rolling():
