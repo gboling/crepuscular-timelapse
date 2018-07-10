@@ -50,10 +50,10 @@ def set_time():
     sunrise = sun['sunrise']
     sunset = sun['sunset']
     dusk = sun['dusk']
-    rec_start_sunrise = sunrise - datetime.timedelta(minutes=pre_roll)
+    rec_start_sunrise = dawn - datetime.timedelta(minutes=pre_roll)
     rec_start_sunset = sunset - datetime.timedelta(minutes=pre_roll)
     rec_stop_sunrise = sunrise + datetime.timedelta(minutes=post_roll)
-    rec_stop_sunset = sunset + datetime.timedelta(minutes=post_roll)
+    rec_stop_sunset = dusk + datetime.timedelta(minutes=post_roll)
     sched_dict = {'dawn': dawn, 'sunrise': sunrise, 'sunset': sunset,
             'dusk': dusk, 'rec_start_sunrise': rec_start_sunrise,
             'rec_start_sunset': rec_start_sunset, 'rec_stop_sunrise':
