@@ -50,6 +50,12 @@ def set_time():
     sunrise = sun['sunrise']
     sunset = sun['sunset']
     dusk = sun['dusk']
+    '''
+    print('Dawn: {0}'.format(dawn))
+    print('Sunrise: {0}'.format(sunrise))
+    print('Sunset: {0}'.format(sunset))
+    print('Dusk: {0}'.format(dusk))
+    '''
     rec_start_sunrise = dawn - datetime.timedelta(minutes=pre_roll)
     rec_start_sunset = sunset - datetime.timedelta(minutes=pre_roll)
     rec_stop_sunrise = sunrise + datetime.timedelta(minutes=post_roll)
@@ -57,12 +63,12 @@ def set_time():
     sched_dict = {'dawn': dawn, 'sunrise': sunrise, 'sunset': sunset,
             'dusk': dusk, 'rec_start_sunrise': rec_start_sunrise,
             'rec_start_sunset': rec_start_sunset, 'rec_stop_sunrise':
-            rec_start_sunrise, 'rec_stop_sunset': rec_stop_sunset}
+            rec_stop_sunrise, 'rec_stop_sunset': rec_stop_sunset}
     return sched_dict, now, today
 
 def tl_capture():
     for filename in enumerate(
-            camera.capture_continuous('image{counter:04d}.jpg')):
+            camera.capture_continuous('image-{timestamp:%Y%m%d{counter:04d}.jpg')):
         (sched_dict, now, today) = set_time()
         (index, fn) = filename
         print('Image recorded to {0} at {1}[UTC]'.format(fn, now))
@@ -73,6 +79,13 @@ def tl_capture():
 
 def check_rolling():
     (sched_dict, now, today) = set_time()
+    '''
+    print('Today is {0}'.format(today))
+    if rec_sunrise:
+        print('Sunrise recording from {0} to {1}'.format(sched_dict['rec_start_sunrise'], sched_dict['rec_stop_sunrise']))
+    if rec_sunset:
+        print('Sunset recording from {0} to {1}'.format(sched_dict['rec_start_sunset'], sched_dict['rec_stop_sunset']))
+    '''
     if rec_sunrise and (sched_dict['rec_start_sunrise'] < now < sched_dict['rec_stop_sunrise']):
         rolling = True
         print('Recording from {0} to {1}'.format(sched_dict['rec_start_sunrise'], sched_dict['rec_stop_sunrise']))
@@ -88,11 +101,11 @@ try:
     while True:
         rolling = check_rolling()
         if rolling: tl_capture()
-        time.sleep(1)
+        else: time.sleep(1)
 
 except KeyboardInterrupt:
     print("Quit")
 
 
 # system('convert -delay 10 -loop 0 image*.jpg animation.gif')
-print('done')
+    print('done')
