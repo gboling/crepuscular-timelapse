@@ -5,7 +5,7 @@ import timedir
 import time
 import pytz
 from astral import Astral
-from os import system
+import os
 
 # Load the config file
 config = {}
@@ -32,6 +32,7 @@ tl_interval = config["tl_interval"]
 pre_roll = config["pre_roll"]
 post_roll = config["post_roll"]
 rolling = False
+scopelevel = day
 
 print('Information for {0}/{1}'.format(city_name, city.region))
 print('Latitude: {0}\tLongitude{1}'.format(city.latitude, city.longitude))
@@ -66,10 +67,21 @@ def set_time():
             rec_stop_sunrise, 'rec_stop_sunset': rec_stop_sunset}
     return sched_dict, now, today
 
+def buildOutputDir():
+    """Make year/month/day directory and export a variable of the day's directory"""
+    timedir.nowdir(output_dir, scopelevel)
+    working_dir = getattr(timedir.nowdir(output_dir, scopelevel), scopedir)
+    return working_dir
+
 def tl_capture():
+    (sched_dict, now, today) = set_time()
+    working_dir = os.path.join('~/Pictures', buildOutputDir())
+    if rec_sunrise:
+        fn_format = os.path.join(working_dir, 'dawn-{timestamp:%Y%m%d}{counter:04d}.jpg')
+    elif rec_sunset:
+        fn_format = os.path.join(working_dir, 'dusk-{timestamp:%Y%m%d}{counter:04d}.jpg')
     for filename in enumerate(
-            camera.capture_continuous('image-{timestamp:%Y%m%d}{counter:04d}.jpg')):
-        (sched_dict, now, today) = set_time()
+            camera.capture_continuous(fn_format)):
         (index, fn) = filename
         print('Image recorded to {0} at {1}[UTC]'.format(fn, now))
         time.sleep(tl_interval)
@@ -105,7 +117,3 @@ try:
 
 except KeyboardInterrupt:
     print("Quit")
-
-
-# system('convert -delay 10 -loop 0 image*.jpg animation.gif')
-    print('done')
