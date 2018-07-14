@@ -32,7 +32,8 @@ tl_interval = config["tl_interval"]
 pre_roll = config["pre_roll"]
 post_roll = config["post_roll"]
 rolling = False
-scopelevel = day
+scopelevel = 'day'
+output_dir = config["outpud_dir"]
 
 print('Information for {0}/{1}'.format(city_name, city.region))
 print('Latitude: {0}\tLongitude{1}'.format(city.latitude, city.longitude))
@@ -75,11 +76,11 @@ def buildOutputDir():
 
 def tl_capture():
     (sched_dict, now, today) = set_time()
-    working_dir = os.path.join('~/Pictures', buildOutputDir())
+    working_dir = buildOutputDir()
     if rec_sunrise:
-        fn_format = os.path.join(working_dir, 'dawn-{timestamp:%Y%m%d}{counter:04d}.jpg')
+        fn_format = os.path.join(working_dir, 'dawn-{timestamp:%Y%m%d}-{counter:04d}.jpg')
     elif rec_sunset:
-        fn_format = os.path.join(working_dir, 'dusk-{timestamp:%Y%m%d}{counter:04d}.jpg')
+        fn_format = os.path.join(working_dir, 'dusk-{timestamp:%Y%m%d}-{counter:04d}.jpg')
     for filename in enumerate(
             camera.capture_continuous(fn_format)):
         (index, fn) = filename
