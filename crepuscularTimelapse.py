@@ -68,7 +68,7 @@ def set_time():
 
 def tl_capture():
     for filename in enumerate(
-            camera.capture_continuous('image-{timestamp:%Y%m%d{counter:04d}.jpg')):
+            camera.capture_continuous('image-{timestamp:%Y%m%d}{counter:04d}.jpg')):
         (sched_dict, now, today) = set_time()
         (index, fn) = filename
         print('Image recorded to {0} at {1}[UTC]'.format(fn, now))
