@@ -5,7 +5,8 @@ import timedir
 import time
 import pytz
 from astral import Astral
-from os import system
+import os
+from collections import namedtuple
 
 # Load the config file
 config = {}
@@ -32,6 +33,14 @@ tl_interval = config["tl_interval"]
 pre_roll = config["pre_roll"]
 post_roll = config["post_roll"]
 rolling = False
+rec_sunrise_inprogress = False
+rec_sunset_inprogress = False
+scopelevel = 'day'
+scopedir = 'dayDir'
+output_dir = config["output_dir"]
+working_dir = ''
+today = datetime.date.today()
+now = pytz.utc.localize(datetime.datetime.utcnow())
 
 print('Information for {0}/{1}'.format(city_name, city.region))
 print('Latitude: {0}\tLongitude{1}'.format(city.latitude, city.longitude))
@@ -42,9 +51,12 @@ print('{0} minutes post-roll'.format(post_roll))
 for k, v in rec_dict.items():
     if v == True: print('Recording enabled for {0}'.format(k))
 
-def set_time():
+def get_timestamp():
     today = datetime.date.today()
     now = pytz.utc.localize(datetime.datetime.utcnow())
+    return now, today
+
+def set_time():
     sun = city.sun(date=today, local=False)
     dawn = sun['dawn']
     sunrise = sun['sunrise']
@@ -64,21 +76,39 @@ def set_time():
             'dusk': dusk, 'rec_start_sunrise': rec_start_sunrise,
             'rec_start_sunset': rec_start_sunset, 'rec_stop_sunrise':
             rec_stop_sunrise, 'rec_stop_sunset': rec_stop_sunset}
-    return sched_dict, now, today
+    return sched_dict
+
+def buildOutputDir():
+    """Make year/month/day directory and export a variable of the day's directory"""
+#    working_dir = getattr(timedir.nowdir(output_dir, scopelevel), scopedir)
+    td = timedir.nowdir(output_dir, 2)
+    working_dir = td.dayDir
+    return working_dir
 
 def tl_capture():
+    sched_dict = set_time()
+    working_dir = buildOutputDir()
+    (roll, rec_sunrise_inprogress, rec_sunset_inprogress) = check_rolling()
+    fn_format = os.path.join(working_dir, 'tl-{timestamp:%Y%m%d}-{counter:04d}.jpg')
+    if rec_sunrise_inprogress:
+        fn_format = os.path.join(working_dir, 'dawn-{timestamp:%Y%m%d}-{counter:04d}.jpg')
+    elif rec_sunset_inprogress:
+        fn_format = os.path.join(working_dir, 'dusk-{timestamp:%Y%m%d}-{counter:04d}.jpg')
     for filename in enumerate(
-            camera.capture_continuous('image-{timestamp:%Y%m%d}{counter:04d}.jpg')):
-        (sched_dict, now, today) = set_time()
+            camera.capture_continuous(fn_format)):
         (index, fn) = filename
+        (now, today) = get_timestamp()
         print('Image recorded to {0} at {1}[UTC]'.format(fn, now))
         time.sleep(tl_interval)
-        roll = check_rolling()
+        (roll, rec_sunrise_inprogress, rec_sunset_inprogress) = check_rolling()
         if roll == False: break
     return
 
 def check_rolling():
-    (sched_dict, now, today) = set_time()
+    sched_dict = set_time()
+    (now, today) = get_timestamp()
+    rec_sunrise_inprogress = False
+    rec_sunset_inprogress = False
     '''
     print('Today is {0}'.format(today))
     if rec_sunrise:
@@ -88,24 +118,24 @@ def check_rolling():
     '''
     if rec_sunrise and (sched_dict['rec_start_sunrise'] < now < sched_dict['rec_stop_sunrise']):
         rolling = True
+        rec_sunrise_inprogress = True
         print('Recording from {0} to {1}'.format(sched_dict['rec_start_sunrise'], sched_dict['rec_stop_sunrise']))
     elif rec_sunset and (sched_dict['rec_start_sunset'] < now < sched_dict['rec_stop_sunset']):
         rolling = True
+        rec_sunset_inprogress = True
         print('Recording from {0} to {1}'.format(sched_dict['rec_start_sunset'], sched_dict['rec_stop_sunset']))
     else:
         rolling = False
+        rec_sunrise_inprogress = False
+        rec_sunset_inprogress = False
 
-    return rolling
+    return rolling, rec_sunrise_inprogress, rec_sunset_inprogress
 
 try:
     while True:
-        rolling = check_rolling()
+        (rolling, rec_sunrise_inprogress, rec_sunset_inprogress) = check_rolling()
         if rolling: tl_capture()
         else: time.sleep(1)
 
 except KeyboardInterrupt:
     print("Quit")
-
-
-# system('convert -delay 10 -loop 0 image*.jpg animation.gif')
-    print('done')
