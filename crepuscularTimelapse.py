@@ -6,6 +6,7 @@ import time
 import pytz
 from astral import Astral
 import os
+from collections import namedtuple
 
 # Load the config file
 config = {}
@@ -56,8 +57,6 @@ def get_timestamp():
     return now, today
 
 def set_time():
-#    today = datetime.date.today()
-#    now = pytz.utc.localize(datetime.datetime.utcnow())
     sun = city.sun(date=today, local=False)
     dawn = sun['dawn']
     sunrise = sun['sunrise']
@@ -81,7 +80,9 @@ def set_time():
 
 def buildOutputDir():
     """Make year/month/day directory and export a variable of the day's directory"""
-    working_dir = getattr(timedir.nowdir(output_dir, scopelevel), scopedir)
+#    working_dir = getattr(timedir.nowdir(output_dir, scopelevel), scopedir)
+    td = timedir.nowdir(output_dir, 2)
+    working_dir = td.dayDir
     return working_dir
 
 def tl_capture():
