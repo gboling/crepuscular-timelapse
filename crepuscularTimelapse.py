@@ -200,11 +200,3 @@ if __name__ == '__main__':
         main()
     except KeyboardInterrupt:
         print("Quit")
-
-except KeyboardInterrupt:
-    print("Quit")
-'''
-finally:
-    curses.endwin()
-'''
-
