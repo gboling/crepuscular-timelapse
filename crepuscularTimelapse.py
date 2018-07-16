@@ -7,6 +7,8 @@ import pytz
 from astral import Astral
 import os
 from collections import namedtuple
+import curses
+import threading
 
 # Load the config file
 config = {}
@@ -40,8 +42,14 @@ scopedir = 'dayDir'
 output_dir = config["output_dir"]
 working_dir = ''
 today = datetime.date.today()
-now = pytz.utc.localize(datetime.datetime.utcnow())
+#now = pytz.utc.localize(datetime.datetime.utcnow())
 
+#stdscr = curses.initscr()
+
+#curses.echo()
+#curses.noecho()
+
+'''
 print('Information for {0}/{1}'.format(city_name, city.region))
 print('Latitude: {0}\tLongitude{1}'.format(city.latitude, city.longitude))
 print('{0} seconds per exposure'.format(tl_interval))
@@ -50,6 +58,7 @@ print('{0} minutes post-roll'.format(post_roll))
 
 for k, v in rec_dict.items():
     if v == True: print('Recording enabled for {0}'.format(k))
+'''
 
 def get_timestamp():
     today = datetime.date.today()
@@ -85,6 +94,33 @@ def buildOutputDir():
     working_dir = td.dayDir
     return working_dir
 
+def draw_window(stdscr):
+    sched_dict = set_time()
+    stdscr.clear()
+#    stdscr.refresh()
+
+    curses.start_color()
+    curses.init_pair(1, curses.COLOR_GREEN, curses.COLOR_BLACK)
+    curses.init_pair(2, curses.COLOR_RED, curses.COLOR_BLACK)
+    curses.init_pair(3, curses.COLOR_BLACK, curses.COLOR_WHITE)
+
+    height, width = stdscr.getmaxyx()
+
+    # Title, Time, and Menu Bar -- Top Line
+    title = 'crepuscular-timelapse'
+    stdscr.addstr(0, 0, title, curses.color_pair(1))
+
+    # Location Info
+
+    # Today's Recording Schedule
+
+    # File List
+
+    stdscr.refresh()
+
+    return
+
+
 def tl_capture():
     sched_dict = set_time()
     working_dir = buildOutputDir()
@@ -98,8 +134,9 @@ def tl_capture():
             camera.capture_continuous(fn_format)):
         (index, fn) = filename
         (now, today) = get_timestamp()
-        print('Image recorded to {0} at {1}[UTC]'.format(fn, now))
+#        print('Image recorded to {0} at {1}[UTC]'.format(fn, now))
         time.sleep(tl_interval)
+#        curses.wrapper(draw_window)
         (roll, rec_sunrise_inprogress, rec_sunset_inprogress) = check_rolling()
         if roll == False: break
     return
@@ -119,11 +156,11 @@ def check_rolling():
     if rec_sunrise and (sched_dict['rec_start_sunrise'] < now < sched_dict['rec_stop_sunrise']):
         rolling = True
         rec_sunrise_inprogress = True
-        print('Recording from {0} to {1}'.format(sched_dict['rec_start_sunrise'], sched_dict['rec_stop_sunrise']))
+#        print('Recording from {0} to {1}'.format(sched_dict['rec_start_sunrise'], sched_dict['rec_stop_sunrise']))
     elif rec_sunset and (sched_dict['rec_start_sunset'] < now < sched_dict['rec_stop_sunset']):
         rolling = True
         rec_sunset_inprogress = True
-        print('Recording from {0} to {1}'.format(sched_dict['rec_start_sunset'], sched_dict['rec_stop_sunset']))
+#        print('Recording from {0} to {1}'.format(sched_dict['rec_start_sunset'], sched_dict['rec_stop_sunset']))
     else:
         rolling = False
         rec_sunrise_inprogress = False
@@ -134,8 +171,14 @@ def check_rolling():
 try:
     while True:
         (rolling, rec_sunrise_inprogress, rec_sunset_inprogress) = check_rolling()
+        curses.wrapper(draw_window)
         if rolling: tl_capture()
-        else: time.sleep(1)
+        else:
+            time.sleep(1)
 
 except KeyboardInterrupt:
     print("Quit")
+'''
+finally:
+    curses.endwin()
+'''
