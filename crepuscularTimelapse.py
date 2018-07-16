@@ -7,6 +7,7 @@ import pytz
 from astral import Astral
 import os
 from collections import namedtuple
+import logging
 
 # Load the config file
 config = {}
@@ -38,18 +39,25 @@ rec_sunset_inprogress = False
 scopelevel = 'day'
 scopedir = 'dayDir'
 output_dir = config["output_dir"]
+logfile = config["logfile"]
+loglevel = config["loglevel"]
+numeric_level = getattr(logging, loglevel.upper(), None)
 working_dir = ''
 today = datetime.date.today()
 now = pytz.utc.localize(datetime.datetime.utcnow())
 
-print('Information for {0}/{1}'.format(city_name, city.region))
-print('Latitude: {0}\tLongitude{1}'.format(city.latitude, city.longitude))
-print('{0} seconds per exposure'.format(tl_interval))
-print('{0} minutes pre-roll'.format(pre_roll))
-print('{0} minutes post-roll'.format(post_roll))
+logging.basicConfig(filename=logfile, filemode='w',
+        format='%(levelname)s:%(message)s', level=numeric_level)
+
+
+logging.info('Information for {0}/{1}'.format(city_name, city.region))
+logging.info('Latitude: {0}\tLongitude{1}'.format(city.latitude, city.longitude))
+logging.info('{0} seconds per exposure'.format(tl_interval))
+logging.info('{0} minutes pre-roll'.format(pre_roll))
+logging.info('{0} minutes post-roll'.format(post_roll))
 
 for k, v in rec_dict.items():
-    if v == True: print('Recording enabled for {0}'.format(k))
+    if v == True: logging.info('Recording enabled for {0}'.format(k))
 
 def get_timestamp():
     today = datetime.date.today()
@@ -62,12 +70,12 @@ def set_time():
     sunrise = sun['sunrise']
     sunset = sun['sunset']
     dusk = sun['dusk']
-    '''
-    print('Dawn: {0}'.format(dawn))
-    print('Sunrise: {0}'.format(sunrise))
-    print('Sunset: {0}'.format(sunset))
-    print('Dusk: {0}'.format(dusk))
-    '''
+
+    logging.debug('Dawn: {0}'.format(dawn))
+    logging.debug('Sunrise: {0}'.format(sunrise))
+    logging.debug('Sunset: {0}'.format(sunset))
+    logging.debug('Dusk: {0}'.format(dusk))
+
     rec_start_sunrise = dawn - datetime.timedelta(minutes=pre_roll)
     rec_start_sunset = sunset - datetime.timedelta(minutes=pre_roll)
     rec_stop_sunrise = sunrise + datetime.timedelta(minutes=post_roll)
@@ -99,6 +107,7 @@ def tl_capture():
         (index, fn) = filename
         (now, today) = get_timestamp()
         print('Image recorded to {0} at {1}[UTC]'.format(fn, now))
+        logging.info('Image recorded to {0} at {1}[UTC]'.format(fn, now))
         time.sleep(tl_interval)
         (roll, rec_sunrise_inprogress, rec_sunset_inprogress) = check_rolling()
         if roll == False: break
@@ -109,21 +118,21 @@ def check_rolling():
     (now, today) = get_timestamp()
     rec_sunrise_inprogress = False
     rec_sunset_inprogress = False
-    '''
-    print('Today is {0}'.format(today))
+
+    logging.debug('Today is {0}'.format(today))
     if rec_sunrise:
-        print('Sunrise recording from {0} to {1}'.format(sched_dict['rec_start_sunrise'], sched_dict['rec_stop_sunrise']))
+        logging.debug('Sunrise recording from {0} to {1}'.format(sched_dict['rec_start_sunrise'], sched_dict['rec_stop_sunrise']))
     if rec_sunset:
-        print('Sunset recording from {0} to {1}'.format(sched_dict['rec_start_sunset'], sched_dict['rec_stop_sunset']))
-    '''
+        logging.debug('Sunset recording from {0} to {1}'.format(sched_dict['rec_start_sunset'], sched_dict['rec_stop_sunset']))
+
     if rec_sunrise and (sched_dict['rec_start_sunrise'] < now < sched_dict['rec_stop_sunrise']):
         rolling = True
         rec_sunrise_inprogress = True
-        print('Recording from {0} to {1}'.format(sched_dict['rec_start_sunrise'], sched_dict['rec_stop_sunrise']))
+        logging.debug('Recording from {0} to {1}'.format(sched_dict['rec_start_sunrise'], sched_dict['rec_stop_sunrise']))
     elif rec_sunset and (sched_dict['rec_start_sunset'] < now < sched_dict['rec_stop_sunset']):
         rolling = True
         rec_sunset_inprogress = True
-        print('Recording from {0} to {1}'.format(sched_dict['rec_start_sunset'], sched_dict['rec_stop_sunset']))
+        logging.debug('Recording from {0} to {1}'.format(sched_dict['rec_start_sunset'], sched_dict['rec_stop_sunset']))
     else:
         rolling = False
         rec_sunrise_inprogress = False
@@ -131,11 +140,17 @@ def check_rolling():
 
     return rolling, rec_sunrise_inprogress, rec_sunset_inprogress
 
-try:
+def main():
     while True:
         (rolling, rec_sunrise_inprogress, rec_sunset_inprogress) = check_rolling()
         if rolling: tl_capture()
         else: time.sleep(1)
 
-except KeyboardInterrupt:
-    print("Quit")
+    return
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("Quit")
