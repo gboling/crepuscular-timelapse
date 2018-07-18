@@ -12,6 +12,7 @@ import logging
 
 import curses
 import threading
+from multiprocessing import Process
 
 
 # Load the config file
@@ -49,26 +50,7 @@ loglevel = config["loglevel"]
 numeric_level = getattr(logging, loglevel.upper(), None)
 working_dir = ''
 today = datetime.date.today()
-#now = pytz.utc.localize(datetime.datetime.utcnow())
 
-
-logging.basicConfig(filename=logfile, filemode='w',
-        format='%(levelname)s:%(message)s', level=numeric_level)
-
-
-logging.info('Information for {0}/{1}'.format(city_name, city.region))
-logging.info('Latitude: {0}\tLongitude{1}'.format(city.latitude, city.longitude))
-logging.info('{0} seconds per exposure'.format(tl_interval))
-logging.info('{0} minutes pre-roll'.format(pre_roll))
-logging.info('{0} minutes post-roll'.format(post_roll))
-
-for k, v in rec_dict.items():
-    if v == True: logging.info('Recording enabled for {0}'.format(k))
-
-#stdscr = curses.initscr()
-
-#curses.echo()
-#curses.noecho()
 
 
 def get_timestamp():
@@ -76,18 +58,18 @@ def get_timestamp():
     now = pytz.utc.localize(datetime.datetime.utcnow())
     return now, today
 
-def set_time():
+def set_time(today):
     sun = city.sun(date=today, local=False)
     dawn = sun['dawn']
     sunrise = sun['sunrise']
     sunset = sun['sunset']
     dusk = sun['dusk']
-
-    logging.debug('Dawn: {0}'.format(dawn))
-    logging.debug('Sunrise: {0}'.format(sunrise))
-    logging.debug('Sunset: {0}'.format(sunset))
-    logging.debug('Dusk: {0}'.format(dusk))
-
+    '''
+    logging.debug('Dawn: {0} [UTC]'.format(dawn))
+    logging.debug('Sunrise: {0} [UTC]'.format(sunrise))
+    logging.debug('Sunset: {0} [UTC]'.format(sunset))
+    logging.debug('Dusk: {0} [UTC]'.format(dusk))
+    '''
     rec_start_sunrise = dawn - datetime.timedelta(minutes=pre_roll)
     rec_start_sunset = sunset - datetime.timedelta(minutes=pre_roll)
     rec_stop_sunrise = sunrise + datetime.timedelta(minutes=post_roll)
@@ -105,35 +87,81 @@ def buildOutputDir():
     working_dir = td.dayDir
     return working_dir
 
-def draw_window(stdscr):
-    sched_dict = set_time()
+def init_window(stdscr):
+    k = 0
+    cursor_x = 0
+    cursor_y = 0
+
+    #curses.noecho()
     stdscr.clear()
-#    stdscr.refresh()
+    stdscr.refresh()
+
+    k = 0
+    cursor_x = 0
+    cursor_y = 0
 
     curses.start_color()
     curses.init_pair(1, curses.COLOR_GREEN, curses.COLOR_BLACK)
     curses.init_pair(2, curses.COLOR_RED, curses.COLOR_BLACK)
     curses.init_pair(3, curses.COLOR_BLACK, curses.COLOR_WHITE)
 
-    height, width = stdscr.getmaxyx()
+    scr_dict = {'k': k, 'cursor_x': cursor_x, 'cursor_y': cursor_y}
 
-    # Title, Time, and Menu Bar -- Top Line
-    title = 'crepuscular-timelapse'
-    stdscr.addstr(0, 0, title, curses.color_pair(1))
+    return scr_dict
 
-    # Location Info
 
-    # Today's Recording Schedule
+def draw_window(stdscr):
+    while True:
+        (k, cursor_x, cursor_y) = init_window(stdscr)
 
-    # File List
+        stdscr.clear()
+        now = datetime.datetime.now()
+        today = datetime.date.today()
+        sched_dict = set_time(today)
+        height, width = stdscr.getmaxyx()
+        '''
+        if k == curses.KEY_DOWN:
+            cursor_y = cursor_y + 1
+        elif k == curses.KEY_UP:
+            cursor_y = cursor_y - 1
+        elif k == curses.KEY_RIGHT:
+            cursor_x = cursor_x + 1
+        elif k == curses.KEY_LEFT:
+            cursor_x = cursor_x - 1
+        '''
 
-    stdscr.refresh()
+        cursor_x = max(0, cursor_x)
+        cursor_x = min(width-1, cursor_x)
+
+        cursor_y = max(0, cursor_y)
+        cursor_y = min(height-1, cursor_y)
+
+        # Title, Time, and Menu Bar -- Top Line
+        title = 'crepuscular-timelapse'
+        ts = now.strftime('%Y-%m-%d %H-%M-%S')
+        tspos = width - len(ts)
+        stdscr.addstr(0, 0, title, curses.color_pair(1))
+        stdscr.addstr(0, tspos, ts, curses.color_pair(1))
+
+        # Location Info
+
+        # Today's Recording Schedule
+
+        # File List
+
+        # Status Bar -- Bottom Line
+        statusbarstr = 'Press Ctrl-C to exit | {0} Images Recorded Today'
+        k = stdscr.getch()
+
+        #recswitch()
+
+        stdscr.refresh()
 
     return
 
-
 def tl_capture():
-    sched_dict = set_time()
+    (now, today) = get_timestamp()
+    sched_dict = set_time(today)
     working_dir = buildOutputDir()
     (roll, rec_sunrise_inprogress, rec_sunset_inprogress) = check_rolling()
     fn_format = os.path.join(working_dir, 'tl-{timestamp:%Y%m%d}-{counter:04d}.jpg')
@@ -146,7 +174,7 @@ def tl_capture():
         (index, fn) = filename
         (now, today) = get_timestamp()
 
-        logging.info('Image recorded to {0} at {1}[UTC]'.format(fn, now))
+        logging.info('Image recorded to {0} at {1} [UTC]'.format(fn, now))
 
         time.sleep(tl_interval)
 #        curses.wrapper(draw_window)
@@ -155,26 +183,25 @@ def tl_capture():
     return
 
 def check_rolling():
-    sched_dict = set_time()
     (now, today) = get_timestamp()
+    sched_dict = set_time(today)
     rec_sunrise_inprogress = False
     rec_sunset_inprogress = False
 
     logging.debug('Today is {0}'.format(today))
     if rec_sunrise:
-        logging.debug('Sunrise recording from {0} to {1}'.format(sched_dict['rec_start_sunrise'], sched_dict['rec_stop_sunrise']))
+        logging.debug('Sunrise recording from {0} to {1} [UTC]'.format(sched_dict['rec_start_sunrise'], sched_dict['rec_stop_sunrise']))
     if rec_sunset:
-        logging.debug('Sunset recording from {0} to {1}'.format(sched_dict['rec_start_sunset'], sched_dict['rec_stop_sunset']))
+        logging.debug('Sunset recording from {0} to {1} [UTC]'.format(sched_dict['rec_start_sunset'], sched_dict['rec_stop_sunset']))
 
     if rec_sunrise and (sched_dict['rec_start_sunrise'] < now < sched_dict['rec_stop_sunrise']):
         rolling = True
         rec_sunrise_inprogress = True
-
-        logging.debug('Recording from {0} to {1}'.format(sched_dict['rec_start_sunrise'], sched_dict['rec_stop_sunrise']))
+        logging.debug('Recording from {0} to {1} [UTC]'.format(sched_dict['rec_start_sunrise'], sched_dict['rec_stop_sunrise']))
     elif rec_sunset and (sched_dict['rec_start_sunset'] < now < sched_dict['rec_stop_sunset']):
         rolling = True
         rec_sunset_inprogress = True
-        logging.debug('Recording from {0} to {1}'.format(sched_dict['rec_start_sunset'], sched_dict['rec_stop_sunset']))
+        logging.debug('Recording from {0} to {1} [UTC]'.format(sched_dict['rec_start_sunset'], sched_dict['rec_stop_sunset']))
 
     else:
         rolling = False
@@ -183,15 +210,43 @@ def check_rolling():
 
     return rolling, rec_sunrise_inprogress, rec_sunset_inprogress
 
+def recswitch():
+    (rolling, rec_sunrise_inprogress, rec_sunset_inprogress) = check_rolling()
+    logging.debug('rolling: {0}\trec_sunrise_inprogress: {1}\trec_sunset_inprogress: {2}'.format(
+        rolling, rec_sunrise_inprogress, rec_sunset_inprogress))
+    if rolling: tl_capture()
+    else:
+        time.sleep(1)
+
+    return
+
 def main():
-    while True:
-        (rolling, rec_sunrise_inprogress, rec_sunset_inprogress) = check_rolling()
-        curses.wrapper(draw_window)
-        if rolling: tl_capture()
-        else:
-            time.sleep(1)
+    logging.basicConfig(filename=logfile,
+        format='%(levelname)s:%(message)s', level=numeric_level)
 
 
+    logging.info('Information for {0}/{1}'.format(city_name, city.region))
+    logging.info('Latitude: {0}\tLongitude{1}'.format(city.latitude, city.longitude))
+    logging.info('{0} seconds per exposure'.format(tl_interval))
+    logging.info('{0} minutes pre-roll'.format(pre_roll))
+    logging.info('{0} minutes post-roll'.format(post_roll))
+
+    for k, v in rec_dict.items():
+        if v == True: logging.info('Recording enabled for {0}'.format(k))
+
+    curses.wrapper(init_window)
+    '''
+    dw = threading.Thread(target=curses.wrapper(draw_window))
+    rs = threading.Thread(target=recswitch)
+
+    dw.start()
+    rs.start()
+    '''
+
+    Process(target=curses.wrapper(draw_window)).start()
+    Process(target=recswitch).start()
+#    recswitch()
+#    curses.wrapper(draw_window)
     return
 
 
