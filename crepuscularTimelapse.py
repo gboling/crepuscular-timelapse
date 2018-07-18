@@ -189,11 +189,12 @@ def check_rolling():
     rec_sunset_inprogress = False
 
     logging.debug('Today is {0}'.format(today))
+    '''
     if rec_sunrise:
         logging.debug('Sunrise recording from {0} to {1} [UTC]'.format(sched_dict['rec_start_sunrise'], sched_dict['rec_stop_sunrise']))
     if rec_sunset:
         logging.debug('Sunset recording from {0} to {1} [UTC]'.format(sched_dict['rec_start_sunset'], sched_dict['rec_stop_sunset']))
-
+    '''
     if rec_sunrise and (sched_dict['rec_start_sunrise'] < now < sched_dict['rec_stop_sunrise']):
         rolling = True
         rec_sunrise_inprogress = True
@@ -234,17 +235,17 @@ def main():
     for k, v in rec_dict.items():
         if v == True: logging.info('Recording enabled for {0}'.format(k))
 
-    curses.wrapper(init_window)
-    '''
-    dw = threading.Thread(target=curses.wrapper(draw_window))
+    #curses.wrapper(init_window)
     rs = threading.Thread(target=recswitch)
-
-    dw.start()
     rs.start()
+
+    dw = threading.Thread(target=curses.wrapper(draw_window))
+    dw.start()
     '''
 
     Process(target=curses.wrapper(draw_window)).start()
     Process(target=recswitch).start()
+    '''
 #    recswitch()
 #    curses.wrapper(draw_window)
     return
