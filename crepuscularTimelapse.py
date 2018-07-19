@@ -12,7 +12,6 @@ import logging
 
 import curses
 import threading
-from multiprocessing import Process
 
 
 # Load the config file
@@ -232,7 +231,6 @@ def tl_capture():
         logging.info('Image recorded to {0} at {1} [UTC]'.format(fn, now))
 
         time.sleep(tl_interval)
-#        curses.wrapper(draw_window)
         (roll, rec_sunrise_inprogress, rec_sunset_inprogress) = check_rolling()
         if roll == False: break
     return
