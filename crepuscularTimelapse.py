@@ -107,6 +107,8 @@ def init_window(stdscr):
     curses.init_pair(2, curses.COLOR_RED, curses.COLOR_BLACK)
     curses.init_pair(3, curses.COLOR_BLACK, curses.COLOR_WHITE)
     curses.init_pair(4, curses.COLOR_BLACK, curses.COLOR_GREEN)
+    curses.init_pair(5, curses.COLOR_WHITE, curses.COLOR_BLACK)
+    curses.init_pair(6, curses.COLOR_CYAN, curses.COLOR_BLACK)
 
     scr_dict = {'k': k, 'cursor_x': cursor_x, 'cursor_y': cursor_y}
 
@@ -145,8 +147,10 @@ def draw_window(stdscr):
         title = 'crepuscular-timelapse'
         td = str(today)
         tdpos = width - len(td)
+        stdscr.attron(curses.A_BOLD)
         stdscr.addstr(0, 0, title, curses.color_pair(1))
         stdscr.addstr(0, tdpos, td, curses.color_pair(1))
+        stdscr.attroff(curses.A_BOLD)
 
         # Location Info
         city_name_disp = "City: " + city_name
@@ -155,10 +159,12 @@ def draw_window(stdscr):
         solar_dep_disp = "Solar Depression: " + solar_depression.capitalize()
         pre_disp = "Pre-Roll: " + str(pre_roll)
         post_disp = "Post-Roll: " + str(post_roll)
-        stdscr.addstr(2, two_thirds_pos, city_name_disp, curses.color_pair(2))
-        stdscr.addstr(3, two_thirds_pos, lat_disp, curses.color_pair(2))
-        stdscr.addstr(4, two_thirds_pos, long_disp, curses.color_pair(2))
-        stdscr.addstr(5, two_thirds_pos, solar_dep_disp, curses.color_pair(2))
+        stdscr.attron(curses.A_UNDERLINE)
+        stdscr.addstr(2, two_thirds_pos, city_name_disp, curses.color_pair(1))
+        stdscr.attroff(curses.A_UNDERLINE)
+        stdscr.addstr(3, two_thirds_pos, lat_disp, curses.color_pair(5))
+        stdscr.addstr(4, two_thirds_pos, long_disp, curses.color_pair(5))
+        stdscr.addstr(5, two_thirds_pos, solar_dep_disp, curses.color_pair(6))
         stdscr.addstr(6, two_thirds_pos, pre_disp, curses.color_pair(2))
         stdscr.addstr(7, two_thirds_pos, post_disp, curses.color_pair(2))
 
@@ -184,11 +190,18 @@ def draw_window(stdscr):
         sunset_disp = "Sunset: " + str(sunset_start_local_disp)
         dusk_disp = "Dusk: " + str(sunset_stop_local_disp)
 
+        rec_section_width = len(rec_section_title)
+        dawn_disp_pad = dawn_disp.ljust(rec_section_width)
+        sunrise_disp_pad = sunrise_disp.ljust(rec_section_width)
+        sunset_disp_pad = sunset_disp.ljust(rec_section_width)
+        dusk_disp_pad = dusk_disp.ljust(rec_section_width)
+
+
         stdscr.addstr(10, two_thirds_pos, rec_section_title, curses.color_pair(3))
-        stdscr.addstr(11, two_thirds_pos, dawn_disp, curses.color_pair(4))
-        stdscr.addstr(12, two_thirds_pos, sunrise_disp, curses.color_pair(4))
-        stdscr.addstr(13, two_thirds_pos, sunset_disp, curses.color_pair(4))
-        stdscr.addstr(14, two_thirds_pos, dusk_disp, curses.color_pair(4))
+        stdscr.addstr(11, two_thirds_pos, dawn_disp_pad, curses.color_pair(4))
+        stdscr.addstr(12, two_thirds_pos, sunrise_disp_pad, curses.color_pair(4))
+        stdscr.addstr(13, two_thirds_pos, sunset_disp_pad, curses.color_pair(4))
+        stdscr.addstr(14, two_thirds_pos, dusk_disp_pad, curses.color_pair(4))
 
         # File List 
         # pre roll/post roll
