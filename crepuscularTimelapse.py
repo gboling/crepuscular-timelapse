@@ -95,6 +95,8 @@ def init_window(stdscr):
     #curses.noecho()
     stdscr.clear()
     stdscr.refresh()
+    curses.noecho()
+    curses.curs_set(0)
 
     k = 0
     cursor_x = 0
@@ -104,6 +106,7 @@ def init_window(stdscr):
     curses.init_pair(1, curses.COLOR_GREEN, curses.COLOR_BLACK)
     curses.init_pair(2, curses.COLOR_RED, curses.COLOR_BLACK)
     curses.init_pair(3, curses.COLOR_BLACK, curses.COLOR_WHITE)
+    curses.init_pair(4, curses.COLOR_BLACK, curses.COLOR_GREEN)
 
     scr_dict = {'k': k, 'cursor_x': cursor_x, 'cursor_y': cursor_y}
 
@@ -136,24 +139,64 @@ def draw_window(stdscr):
         cursor_y = max(0, cursor_y)
         cursor_y = min(height-1, cursor_y)
 
+        two_thirds_pos = width - (width//3)
+
         # Title, Time, and Menu Bar -- Top Line
         title = 'crepuscular-timelapse'
-        ts = now.strftime('%Y-%m-%d %H-%M-%S')
-        tspos = width - len(ts)
+        td = str(today)
+        tdpos = width - len(td)
         stdscr.addstr(0, 0, title, curses.color_pair(1))
-        stdscr.addstr(0, tspos, ts, curses.color_pair(1))
+        stdscr.addstr(0, tdpos, td, curses.color_pair(1))
 
         # Location Info
+        city_name_disp = "City: " + city_name
+        lat_disp = "Latitude: " + str(city.latitude)
+        long_disp = "Longitude: " + str(city.longitude)
+        solar_dep_disp = "Solar Depression: " + solar_depression.capitalize()
+        pre_disp = "Pre-Roll: " + str(pre_roll)
+        post_disp = "Post-Roll: " + str(post_roll)
+        stdscr.addstr(2, two_thirds_pos, city_name_disp, curses.color_pair(2))
+        stdscr.addstr(3, two_thirds_pos, lat_disp, curses.color_pair(2))
+        stdscr.addstr(4, two_thirds_pos, long_disp, curses.color_pair(2))
+        stdscr.addstr(5, two_thirds_pos, solar_dep_disp, curses.color_pair(2))
+        stdscr.addstr(6, two_thirds_pos, pre_disp, curses.color_pair(2))
+        stdscr.addstr(7, two_thirds_pos, post_disp, curses.color_pair(2))
 
         # Today's Recording Schedule
+        fmt = '%H:%M:%S %Z%z'
+        sunrise_start_local = (
+                sched_dict['rec_start_sunrise']).astimezone(tz)
+        sunrise_stop_local = (
+                sched_dict['rec_stop_sunrise']).astimezone(tz)
+        sunset_start_local = (
+                sched_dict['rec_start_sunset']).astimezone(tz)
+        sunset_stop_local = (
+                sched_dict['rec_stop_sunset']).astimezone(tz)
 
-        # File List
+        sunrise_start_local_disp = sunrise_start_local.strftime(fmt)
+        sunrise_stop_local_disp = sunrise_stop_local.strftime(fmt)
+        sunset_start_local_disp = sunset_start_local.strftime(fmt)
+        sunset_stop_local_disp = sunset_stop_local.strftime(fmt)
+
+        rec_section_title = "Today's Recording Schedule"
+        dawn_disp = "Dawn: " + str(sunrise_start_local_disp)
+        sunrise_disp = "Sunrise: " + str(sunrise_stop_local_disp)
+        sunset_disp = "Sunset: " + str(sunset_start_local_disp)
+        dusk_disp = "Dusk: " + str(sunset_stop_local_disp)
+
+        stdscr.addstr(10, two_thirds_pos, rec_section_title, curses.color_pair(3))
+        stdscr.addstr(11, two_thirds_pos, dawn_disp, curses.color_pair(4))
+        stdscr.addstr(12, two_thirds_pos, sunrise_disp, curses.color_pair(4))
+        stdscr.addstr(13, two_thirds_pos, sunset_disp, curses.color_pair(4))
+        stdscr.addstr(14, two_thirds_pos, dusk_disp, curses.color_pair(4))
+
+        # File List 
+        # pre roll/post roll
 
         # Status Bar -- Bottom Line
         statusbarstr = 'Press Ctrl-C to exit | {0} Images Recorded Today'
         k = stdscr.getch()
 
-        #recswitch()
 
         stdscr.refresh()
 
@@ -212,12 +255,13 @@ def check_rolling():
     return rolling, rec_sunrise_inprogress, rec_sunset_inprogress
 
 def recswitch():
-    (rolling, rec_sunrise_inprogress, rec_sunset_inprogress) = check_rolling()
-    logging.debug('rolling: {0}\trec_sunrise_inprogress: {1}\trec_sunset_inprogress: {2}'.format(
-        rolling, rec_sunrise_inprogress, rec_sunset_inprogress))
-    if rolling: tl_capture()
-    else:
-        time.sleep(1)
+    while True:
+        (rolling, rec_sunrise_inprogress, rec_sunset_inprogress) = check_rolling()
+        logging.debug('rolling: {0}\trec_sunrise_inprogress: {1}\trec_sunset_inprogress: {2}'.format(
+            rolling, rec_sunrise_inprogress, rec_sunset_inprogress))
+        if rolling: tl_capture()
+        else:
+            time.sleep(1)
 
     return
 
@@ -235,19 +279,12 @@ def main():
     for k, v in rec_dict.items():
         if v == True: logging.info('Recording enabled for {0}'.format(k))
 
-    #curses.wrapper(init_window)
     rs = threading.Thread(target=recswitch)
     rs.start()
 
     dw = threading.Thread(target=curses.wrapper(draw_window))
     dw.start()
-    '''
 
-    Process(target=curses.wrapper(draw_window)).start()
-    Process(target=recswitch).start()
-    '''
-#    recswitch()
-#    curses.wrapper(draw_window)
     return
 
 
@@ -256,3 +293,4 @@ if __name__ == '__main__':
         main()
     except KeyboardInterrupt:
         print("Quit")
+        sys.exit()
