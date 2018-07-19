@@ -47,6 +47,7 @@ scopedir = 'dayDir'
 output_dir = config["output_dir"]
 logfile = config["logfile"]
 loglevel = config["loglevel"]
+headless = config["headless"]
 numeric_level = getattr(logging, loglevel.upper(), None)
 working_dir = ''
 today = datetime.date.today()
@@ -292,9 +293,9 @@ def main():
 
     rs = threading.Thread(target=recswitch)
     rs.start()
-
-    dw = threading.Thread(target=curses.wrapper(draw_window))
-    dw.start()
+    if not headless:
+        dw = threading.Thread(target=curses.wrapper(draw_window))
+        dw.start()
 
     return
 
