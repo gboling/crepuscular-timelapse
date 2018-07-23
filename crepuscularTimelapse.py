@@ -6,6 +6,7 @@ import time
 import pytz
 from astral import Astral
 import os
+import sys
 from collections import namedtuple
 
 import logging
@@ -30,7 +31,6 @@ tz = pytz.timezone(timezone)
 rec_sunrise = config["sunrise"]
 rec_sunset = config["sunset"]
 rec_dict = {'Sunrise':rec_sunrise, 'Sunset':rec_sunset}
-# print(rec_dict)
 
 CAM_RESOLUTION = config["resolution"]
 camera = PiCamera()
@@ -50,7 +50,6 @@ headless = config["headless"]
 numeric_level = getattr(logging, loglevel.upper(), None)
 working_dir = ''
 today = datetime.date.today()
-
 
 
 def get_timestamp():
@@ -82,7 +81,6 @@ def set_time(today):
 
 def buildOutputDir():
     """Make year/month/day directory and export a variable of the day's directory"""
-#    working_dir = getattr(timedir.nowdir(output_dir, scopelevel), scopedir)
     td = timedir.nowdir(output_dir, 2)
     working_dir = td.dayDir
     return working_dir
@@ -92,11 +90,12 @@ def init_window(stdscr):
     cursor_x = 0
     cursor_y = 0
 
-    #curses.noecho()
-    stdscr.clear()
+    stdscr.erase()
     stdscr.refresh()
     curses.noecho()
     curses.curs_set(0)
+    # Don't wait for getch() to refresh the screen
+    stdscr.nodelay(1)
 
     k = 0
     cursor_x = 0
@@ -116,10 +115,11 @@ def init_window(stdscr):
 
 
 def draw_window(stdscr):
+    (k, cursor_x, cursor_y) = init_window(stdscr)
     while True:
-        (k, cursor_x, cursor_y) = init_window(stdscr)
 
-        stdscr.clear()
+        # erase instead of clear to avoid flicker
+        stdscr.erase()
         now = datetime.datetime.now()
         today = datetime.date.today()
         sched_dict = set_time(today)
@@ -145,11 +145,13 @@ def draw_window(stdscr):
 
         # Title, Time, and Menu Bar -- Top Line
         title = 'crepuscular-timelapse'
-        td = str(today)
-        tdpos = width - len(td)
+        fmtz = '%H:%M:%S %Z%z'
+        fmt = '%H:%M:%S'
+        ts = now.strftime(fmt)
+        tspos = width - len(ts)
         stdscr.attron(curses.A_BOLD)
         stdscr.addstr(0, 0, title, curses.color_pair(1))
-        stdscr.addstr(0, tdpos, td, curses.color_pair(1))
+        stdscr.addstr(0, tspos, ts, curses.color_pair(1))
         stdscr.attroff(curses.A_BOLD)
 
         # Location Info
@@ -157,8 +159,8 @@ def draw_window(stdscr):
         lat_disp = "Latitude: " + str(city.latitude)
         long_disp = "Longitude: " + str(city.longitude)
         solar_dep_disp = "Solar Depression: " + solar_depression.capitalize()
-        pre_disp = "Pre-Roll: " + str(pre_roll)
-        post_disp = "Post-Roll: " + str(post_roll)
+        pre_disp = "Pre-Roll: " + str(pre_roll) + " minutes"
+        post_disp = "Post-Roll: " + str(post_roll) + " minutes"
         stdscr.addstr(2, two_thirds_pos, city_name_disp, curses.color_pair(1))
         stdscr.addstr(3, two_thirds_pos, lat_disp, curses.color_pair(5))
         stdscr.addstr(4, two_thirds_pos, long_disp, curses.color_pair(5))
@@ -167,7 +169,6 @@ def draw_window(stdscr):
         stdscr.addstr(7, two_thirds_pos, post_disp, curses.color_pair(2))
 
         # Today's Recording Schedule
-        fmt = '%H:%M:%S %Z%z'
         sunrise_start_local = (
                 sched_dict['rec_start_sunrise']).astimezone(tz)
         sunrise_stop_local = (
@@ -177,16 +178,17 @@ def draw_window(stdscr):
         sunset_stop_local = (
                 sched_dict['rec_stop_sunset']).astimezone(tz)
 
-        sunrise_start_local_disp = sunrise_start_local.strftime(fmt)
-        sunrise_stop_local_disp = sunrise_stop_local.strftime(fmt)
-        sunset_start_local_disp = sunset_start_local.strftime(fmt)
-        sunset_stop_local_disp = sunset_stop_local.strftime(fmt)
+        sunrise_start_local_disp = sunrise_start_local.strftime(fmtz)
+        sunrise_stop_local_disp = sunrise_stop_local.strftime(fmtz)
+        sunset_start_local_disp = sunset_start_local.strftime(fmtz)
+        sunset_stop_local_disp = sunset_stop_local.strftime(fmtz)
 
         rec_section_title = "Today's Recording Schedule"
-        dawn_disp = "Dawn: " + str(sunrise_start_local_disp)
+        rec_section_title2 = "Including pre and postroll"
+        dawn_disp = "Dawn:    " + str(sunrise_start_local_disp)
         sunrise_disp = "Sunrise: " + str(sunrise_stop_local_disp)
-        sunset_disp = "Sunset: " + str(sunset_start_local_disp)
-        dusk_disp = "Dusk: " + str(sunset_stop_local_disp)
+        sunset_disp = "Sunset:  " + str(sunset_start_local_disp)
+        dusk_disp = "Dusk:    " + str(sunset_stop_local_disp)
 
         rec_section_width = len(rec_section_title)
         dawn_disp_pad = dawn_disp.ljust(rec_section_width)
@@ -196,20 +198,23 @@ def draw_window(stdscr):
 
 
         stdscr.addstr(10, two_thirds_pos, rec_section_title, curses.color_pair(3))
-        stdscr.addstr(11, two_thirds_pos, dawn_disp_pad, curses.color_pair(4))
-        stdscr.addstr(12, two_thirds_pos, sunrise_disp_pad, curses.color_pair(4))
-        stdscr.addstr(13, two_thirds_pos, sunset_disp_pad, curses.color_pair(4))
-        stdscr.addstr(14, two_thirds_pos, dusk_disp_pad, curses.color_pair(4))
+        stdscr.addstr(11, two_thirds_pos, rec_section_title2, curses.color_pair(3))
+        stdscr.addstr(12, two_thirds_pos, dawn_disp_pad, curses.color_pair(4))
+        stdscr.addstr(13, two_thirds_pos, sunrise_disp_pad, curses.color_pair(4))
+        stdscr.addstr(14, two_thirds_pos, sunset_disp_pad, curses.color_pair(4))
+        stdscr.addstr(15, two_thirds_pos, dusk_disp_pad, curses.color_pair(4))
 
         # File List 
-        # pre roll/post roll
 
         # Status Bar -- Bottom Line
         statusbarstr = 'Press Ctrl-C to exit | {0} Images Recorded Today'
+
+        # Deal with user input
         k = stdscr.getch()
 
 
         stdscr.refresh()
+        curses.napms(50)
 
     return
 
