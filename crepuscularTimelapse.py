@@ -51,6 +51,8 @@ numeric_level = getattr(logging, loglevel.upper(), None)
 working_dir = ''
 today = datetime.date.today()
 
+_QUIT = False
+
 
 def get_timestamp():
     today = datetime.date.today()
@@ -117,7 +119,8 @@ def init_window(stdscr):
 
 def draw_window(stdscr):
     (k, cursor_x, cursor_y) = init_window(stdscr)
-    while True:
+    global _QUIT
+    while not _QUIT:
 
         # erase instead of clear to avoid flicker
         stdscr.erase()
@@ -142,7 +145,9 @@ def draw_window(stdscr):
         cursor_y = max(0, cursor_y)
         cursor_y = min(height-1, cursor_y)
 
+        one_thirds_pos = (width // 3)
         two_thirds_pos = width - (width//3)
+        centered = (width // 2)
 
         # Title, Time, and Menu Bar -- Top Line
         title = 'crepuscular-timelapse'
@@ -225,13 +230,27 @@ def draw_window(stdscr):
 
 
         # Status Bar -- Bottom Line
-        statusbarstr = "Press q to exit | {0} Images Recorded Today | {1}% Free Space"
+        sbar_qmesg = "| Press q to exit |"
+        sbar_imgcount = "| {0} Images Recorded Today |"
+        sbar_dfree = "| {0}% Free Space |"
+
+        stat_centered = (centered - (len(sbar_dfree) // 2))
+        stat_rjust = (width - len(sbar_dfree)) - 1
+
+        # (Height - 1) to avoid problems with byobu
+        stdscr.addstr((height - 1), 0, sbar_qmesg)
+        stdscr.addstr((height - 1), stat_centered, sbar_imgcount)
+        stdscr.addstr((height - 1), stat_rjust, sbar_dfree)
 
         # Deal with user input
         k = stdscr.getch()
 
+        if k == ord('q'):
+            _QUIT = True
 
         stdscr.refresh()
+        if _QUIT:
+            break
         curses.napms(50)
 
     return
@@ -300,10 +319,13 @@ def recswitch():
         if rolling: tl_capture()
         else:
             time.sleep(1)
+        if _QUIT:
+            break
 
     return
 
 def main():
+    global rs
     logging.basicConfig(filename=logfile,
         format='%(levelname)s:%(message)s', level=numeric_level)
 
@@ -321,8 +343,8 @@ def main():
     rs.start()
     if not headless:
         curses.wrapper(draw_window)
-        # dw = threading.Thread(target=curses.wrapper(draw_window))
-        # dw.start()
+    if _QUIT:
+        rs.join()
 
     return
 
@@ -332,4 +354,4 @@ if __name__ == '__main__':
         main()
     except KeyboardInterrupt:
         print("Quit")
-        sys.exit()
+        rs.join()
