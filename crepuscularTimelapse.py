@@ -108,6 +108,7 @@ def init_window(stdscr):
     curses.init_pair(4, curses.COLOR_BLACK, curses.COLOR_GREEN)
     curses.init_pair(5, curses.COLOR_WHITE, curses.COLOR_BLACK)
     curses.init_pair(6, curses.COLOR_CYAN, curses.COLOR_BLACK)
+    curses.init_pair(7, curses.COLOR_WHITE, curses.COLOR_RED)
 
     scr_dict = {'k': k, 'cursor_x': cursor_x, 'cursor_y': cursor_y}
 
@@ -196,18 +197,35 @@ def draw_window(stdscr):
         sunset_disp_pad = sunset_disp.ljust(rec_section_width)
         dusk_disp_pad = dusk_disp.ljust(rec_section_width)
 
-
         stdscr.addstr(10, two_thirds_pos, rec_section_title, curses.color_pair(3))
         stdscr.addstr(11, two_thirds_pos, rec_section_title2, curses.color_pair(3))
         stdscr.addstr(12, two_thirds_pos, dawn_disp_pad, curses.color_pair(4))
-        stdscr.addstr(13, two_thirds_pos, sunrise_disp_pad, curses.color_pair(4))
+        stdscr.addstr(13, two_thirds_pos, sunrise_disp_pad, curses.color_pair(7))
         stdscr.addstr(14, two_thirds_pos, sunset_disp_pad, curses.color_pair(4))
-        stdscr.addstr(15, two_thirds_pos, dusk_disp_pad, curses.color_pair(4))
+        stdscr.addstr(15, two_thirds_pos, dusk_disp_pad, curses.color_pair(7))
 
         # File List 
 
+        # Recording Indicators
+        start = "START"
+        stop = "STOP"
+        start_pad = start.rjust(6)
+        stop_pad = stop.rjust(6)
+        (rolling, rec_sunrise_inprogress, rec_sunset_inprogress) = check_rolling()
+        rec_status = "RECORDING IN PROGRESS"
+        rec_indc_pos = two_thirds_pos + rec_section_width
+        if rec_sunrise:
+            stdscr.addstr(12, (rec_indc_pos), start_pad, curses.color_pair(4))
+            stdscr.addstr(13, (rec_indc_pos), stop_pad, curses.color_pair(7))
+        if rec_sunset:
+            stdscr.addstr(14, (rec_indc_pos), start_pad, curses.color_pair(4))
+            stdscr.addstr(15, (rec_indc_pos), stop_pad, curses.color_pair(7))
+        if rolling:
+            stdscr.addstr(17, two_thirds_pos, rec_status, curses.color_pair(7))
+
+
         # Status Bar -- Bottom Line
-        statusbarstr = 'Press Ctrl-C to exit | {0} Images Recorded Today'
+        statusbarstr = "Press q to exit | {0} Images Recorded Today | {1}% Free Space"
 
         # Deal with user input
         k = stdscr.getch()
@@ -223,11 +241,16 @@ def tl_capture():
     sched_dict = set_time(today)
     working_dir = buildOutputDir()
     (roll, rec_sunrise_inprogress, rec_sunset_inprogress) = check_rolling()
-    fn_format = os.path.join(working_dir, 'tl-{timestamp:%Y%m%d}-{counter:04d}.jpg')
     if rec_sunrise_inprogress:
-        fn_format = os.path.join(working_dir, 'dawn-{timestamp:%Y%m%d}-{counter:04d}.jpg')
+        working_dir_dawn = os.path.join(working_dir, 'dawn')
+        if not os.path.exists(working_dir_dawn):
+            os.mkdir(working_dir_dawn)
+        fn_format = os.path.join(working_dir_dawn, 'dawn-{timestamp:%Y%m%d}-{counter:04d}.jpg')
     elif rec_sunset_inprogress:
-        fn_format = os.path.join(working_dir, 'dusk-{timestamp:%Y%m%d}-{counter:04d}.jpg')
+        working_dir_dusk = os.path.join(working_dir, 'dusk')
+        if not os.path.exists(working_dir_dusk):
+            os.mkdir(working_dir_dusk)
+        fn_format = os.path.join(working_dir_dusk, 'dusk-{timestamp:%Y%m%d}-{counter:04d}.jpg')
     for filename in enumerate(
             camera.capture_continuous(fn_format)):
         (index, fn) = filename
@@ -297,8 +320,9 @@ def main():
     rs = threading.Thread(target=recswitch)
     rs.start()
     if not headless:
-        dw = threading.Thread(target=curses.wrapper(draw_window))
-        dw.start()
+        curses.wrapper(draw_window)
+        # dw = threading.Thread(target=curses.wrapper(draw_window))
+        # dw.start()
 
     return
 
