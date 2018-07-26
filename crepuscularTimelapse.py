@@ -13,6 +13,7 @@ import logging
 
 import curses
 import threading
+import Queue
 
 
 # Load the config file
@@ -50,6 +51,9 @@ headless = config["headless"]
 numeric_level = getattr(logging, loglevel.upper(), None)
 working_dir = ''
 today = datetime.date.today()
+
+threadLock = threading.RLock()
+global_counter = 0
 
 _QUIT = False
 
@@ -154,7 +158,7 @@ def draw_window(stdscr):
         fmtz = '%H:%M:%S %Z%z'
         fmt = '%H:%M:%S'
         ts = now.strftime(fmt)
-        tspos = width - len(ts)
+        tspos = (width - len(ts)) - 1
         stdscr.attron(curses.A_BOLD)
         stdscr.addstr(0, 0, title, curses.color_pair(1))
         stdscr.addstr(0, tspos, ts, curses.color_pair(1))
@@ -231,7 +235,8 @@ def draw_window(stdscr):
 
         # Status Bar -- Bottom Line
         sbar_qmesg = "| Press q to exit |"
-        sbar_imgcount = "| {0} Images Recorded Today |"
+        #with threadLock:
+        sbar_imgcount = "| {0} Images Recorded Since Start |".format(global_counter)
         sbar_dfree = "| {0}% Free Space |"
 
         stat_centered = (centered - (len(sbar_dfree) // 2))
@@ -256,6 +261,7 @@ def draw_window(stdscr):
     return
 
 def tl_capture():
+    global global_counter
     (now, today) = get_timestamp()
     sched_dict = set_time(today)
     working_dir = buildOutputDir()
@@ -279,7 +285,11 @@ def tl_capture():
 
         time.sleep(tl_interval)
         (roll, rec_sunrise_inprogress, rec_sunset_inprogress) = check_rolling()
+        with threadLock:
+            global_counter += 1
         if roll == False: break
+        if _QUIT:
+            break
     return
 
 def check_rolling():
@@ -340,11 +350,13 @@ def main():
         if v == True: logging.info('Recording enabled for {0}'.format(k))
 
     rs = threading.Thread(target=recswitch)
+    rs.setDaemon(True)
     rs.start()
     if not headless:
         curses.wrapper(draw_window)
     if _QUIT:
         rs.join()
+        print("Quit")
 
     return
 
