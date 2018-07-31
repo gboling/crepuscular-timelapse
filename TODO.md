@@ -1,10 +1,11 @@
 - [x] change rec_time to pre_roll and post_roll, use sunrise/dawn and sunset/dusk
-- [ ] logging
+- [x] logging
 - [ ] add CLI argument handling
-- [ ] improve formatting of output if run from CLI
-- [ ] daemon mode
+- [x] improve formatting of output if run from CLI
+- [x] daemon mode
 - [x] Use timedir to organize images in ~/Pictures/timelapse
 - [ ] give image filetype choices
+- [ ] better exposure handling
 - [ ] generate video
 - [ ] web interface
 - [ ] share options (facebook, google, youtube)
