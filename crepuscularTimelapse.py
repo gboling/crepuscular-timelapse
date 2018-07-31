@@ -52,6 +52,8 @@ numeric_level = getattr(logging, loglevel.upper(), None)
 working_dir = ''
 today = datetime.date.today()
 
+fn_q = Queue.Queue()
+
 threadLock = threading.RLock()
 global_counter = 0
 
@@ -103,6 +105,7 @@ def init_window(stdscr):
     # Don't wait for getch() to refresh the screen
     stdscr.nodelay(1)
 
+
     k = 0
     cursor_x = 0
     cursor_y = 0
@@ -122,36 +125,29 @@ def init_window(stdscr):
 
 
 def draw_window(stdscr):
-    (k, cursor_x, cursor_y) = init_window(stdscr)
     global _QUIT
+    (k, cursor_x, cursor_y) = init_window(stdscr)
+    height, width = stdscr.getmaxyx()
+    one_third_pos = (width // 3)
+    two_thirds_pos = width - (width//3)
+    centered = (width // 2)
+    fn_row = 0
+    filewin_h = (height - 4)
+    filewin_w = (two_thirds_pos - 5)
+    filewin = stdscr.subwin(filewin_h, filewin_w, 2, 2)
+    file_rows, file_columns = filewin.getmaxyx()
+    file_rows -= 1
+    fn_list = []
     while not _QUIT:
 
         # erase instead of clear to avoid flicker
         stdscr.erase()
+        filewin.erase()
         now = datetime.datetime.now()
         today = datetime.date.today()
         sched_dict = set_time(today)
-        height, width = stdscr.getmaxyx()
-        '''
-        if k == curses.KEY_DOWN:
-            cursor_y = cursor_y + 1
-        elif k == curses.KEY_UP:
-            cursor_y = cursor_y - 1
-        elif k == curses.KEY_RIGHT:
-            cursor_x = cursor_x + 1
-        elif k == curses.KEY_LEFT:
-            cursor_x = cursor_x - 1
-        '''
 
-        cursor_x = max(0, cursor_x)
-        cursor_x = min(width-1, cursor_x)
 
-        cursor_y = max(0, cursor_y)
-        cursor_y = min(height-1, cursor_y)
-
-        one_thirds_pos = (width // 3)
-        two_thirds_pos = width - (width//3)
-        centered = (width // 2)
 
         # Title, Time, and Menu Bar -- Top Line
         title = 'crepuscular-timelapse'
@@ -195,6 +191,8 @@ def draw_window(stdscr):
 
         rec_section_title = "Today's Recording Schedule"
         rec_section_title2 = "Including pre and postroll"
+        rec_section_title_pad = '{:^32}'.format(rec_section_title)
+        rec_section_title2_pad = '{:^32}'.format(rec_section_title2)
         dawn_disp = "Dawn:    " + str(sunrise_start_local_disp)
         sunrise_disp = "Sunrise: " + str(sunrise_stop_local_disp)
         sunset_disp = "Sunset:  " + str(sunset_start_local_disp)
@@ -206,15 +204,38 @@ def draw_window(stdscr):
         sunset_disp_pad = sunset_disp.ljust(rec_section_width)
         dusk_disp_pad = dusk_disp.ljust(rec_section_width)
 
-        stdscr.addstr(10, two_thirds_pos, rec_section_title, curses.color_pair(3))
-        stdscr.addstr(11, two_thirds_pos, rec_section_title2, curses.color_pair(3))
+        stdscr.addstr(10, two_thirds_pos, rec_section_title_pad, curses.color_pair(3))
+        stdscr.addstr(11, two_thirds_pos, rec_section_title2_pad, curses.color_pair(3))
         stdscr.addstr(12, two_thirds_pos, dawn_disp_pad, curses.color_pair(4))
         stdscr.addstr(13, two_thirds_pos, sunrise_disp_pad, curses.color_pair(7))
         stdscr.addstr(14, two_thirds_pos, sunset_disp_pad, curses.color_pair(4))
         stdscr.addstr(15, two_thirds_pos, dusk_disp_pad, curses.color_pair(7))
 
         # File List 
+        # Subwin seems to be the best bet for a scrollable buffer
+        #'''
 
+        fn_row = 1
+        fw_canvas_h = (filewin_h - 2)
+        fn_q_count = len(fn_list)
+        if not fn_q.empty():
+            fn_q_out = fn_q.get()
+            #logging.debug('Queue Entry: {0}'.format(fn_q_out))
+            fn_list.append(fn_q_out)
+            #logging.debug('Number of entries in list: {0}'.format(fn_q_count))
+            #logging.debug('fn_list = {0}'.format(fn_list))
+        if fn_q_count < fw_canvas_h:
+            for item in fn_list:
+                if fn_row <= fw_canvas_h:
+                    filewin.addstr(fn_row, 1, item)
+                    fn_row += 1
+        else:
+            for item in fn_list[(fw_canvas_h * -1):]:
+                filewin.addstr(fn_row, 1, item)
+                fn_row += 1
+
+
+        filewin.box()
         # Recording Indicators
         start = "START"
         stop = "STOP"
@@ -235,8 +256,8 @@ def draw_window(stdscr):
 
         # Status Bar -- Bottom Line
         sbar_qmesg = "| Press q to exit |"
-        #with threadLock:
-        sbar_imgcount = "| {0} Images Recorded Since Start |".format(global_counter)
+        with threadLock:
+            sbar_imgcount = "| {0} Images Recorded Since Launch |".format(global_counter)
         sbar_dfree = "| {0}% Free Space |"
 
         stat_centered = (centered - (len(sbar_dfree) // 2))
@@ -253,7 +274,8 @@ def draw_window(stdscr):
         if k == ord('q'):
             _QUIT = True
 
-        stdscr.refresh()
+        #stdscr.refresh()
+        filewin.refresh()
         if _QUIT:
             break
         curses.napms(50)
@@ -280,16 +302,20 @@ def tl_capture():
             camera.capture_continuous(fn_format)):
         (index, fn) = filename
         (now, today) = get_timestamp()
+        loc_now = datetime.datetime.now()
+        fmt = '%H:%M:%S'
+        ts = loc_now.strftime(fmt)
 
         logging.info('Image recorded to {0} at {1} [UTC]'.format(fn, now))
 
-        time.sleep(tl_interval)
+        fn_q.put('{0} at {1}'.format(fn, ts))
         (roll, rec_sunrise_inprogress, rec_sunset_inprogress) = check_rolling()
         with threadLock:
             global_counter += 1
         if roll == False: break
         if _QUIT:
             break
+        time.sleep(tl_interval)
     return
 
 def check_rolling():
@@ -298,7 +324,7 @@ def check_rolling():
     rec_sunrise_inprogress = False
     rec_sunset_inprogress = False
 
-    logging.debug('Today is {0}'.format(today))
+    #logging.debug('Today is {0}'.format(today))
     '''
     if rec_sunrise:
         logging.debug('Sunrise recording from {0} to {1} [UTC]'.format(sched_dict['rec_start_sunrise'], sched_dict['rec_stop_sunrise']))
@@ -308,11 +334,11 @@ def check_rolling():
     if rec_sunrise and (sched_dict['rec_start_sunrise'] < now < sched_dict['rec_stop_sunrise']):
         rolling = True
         rec_sunrise_inprogress = True
-        logging.debug('Recording from {0} to {1} [UTC]'.format(sched_dict['rec_start_sunrise'], sched_dict['rec_stop_sunrise']))
+        #logging.debug('Recording from {0} to {1} [UTC]'.format(sched_dict['rec_start_sunrise'], sched_dict['rec_stop_sunrise']))
     elif rec_sunset and (sched_dict['rec_start_sunset'] < now < sched_dict['rec_stop_sunset']):
         rolling = True
         rec_sunset_inprogress = True
-        logging.debug('Recording from {0} to {1} [UTC]'.format(sched_dict['rec_start_sunset'], sched_dict['rec_stop_sunset']))
+        #logging.debug('Recording from {0} to {1} [UTC]'.format(sched_dict['rec_start_sunset'], sched_dict['rec_stop_sunset']))
 
     else:
         rolling = False
@@ -324,8 +350,10 @@ def check_rolling():
 def recswitch():
     while True:
         (rolling, rec_sunrise_inprogress, rec_sunset_inprogress) = check_rolling()
+        '''
         logging.debug('rolling: {0}\trec_sunrise_inprogress: {1}\trec_sunset_inprogress: {2}'.format(
             rolling, rec_sunrise_inprogress, rec_sunset_inprogress))
+        '''
         if rolling: tl_capture()
         else:
             time.sleep(1)
