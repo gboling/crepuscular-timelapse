@@ -71,12 +71,6 @@ def set_time(today):
     sunrise = sun['sunrise']
     sunset = sun['sunset']
     dusk = sun['dusk']
-    '''
-    logging.debug('Dawn: {0} [UTC]'.format(dawn))
-    logging.debug('Sunrise: {0} [UTC]'.format(sunrise))
-    logging.debug('Sunset: {0} [UTC]'.format(sunset))
-    logging.debug('Dusk: {0} [UTC]'.format(dusk))
-    '''
     rec_start_sunrise = dawn - datetime.timedelta(minutes=pre_roll)
     rec_start_sunset = sunset - datetime.timedelta(minutes=pre_roll)
     rec_stop_sunrise = sunrise + datetime.timedelta(minutes=post_roll)
@@ -213,17 +207,13 @@ def draw_window(stdscr):
 
         # File List 
         # Subwin seems to be the best bet for a scrollable buffer
-        #'''
 
         fn_row = 1
         fw_canvas_h = (filewin_h - 2)
         fn_q_count = len(fn_list)
         if not fn_q.empty():
             fn_q_out = fn_q.get()
-            #logging.debug('Queue Entry: {0}'.format(fn_q_out))
             fn_list.append(fn_q_out)
-            #logging.debug('Number of entries in list: {0}'.format(fn_q_count))
-            #logging.debug('fn_list = {0}'.format(fn_list))
         if fn_q_count < fw_canvas_h:
             for item in fn_list:
                 if fn_row <= fw_canvas_h:
@@ -236,6 +226,7 @@ def draw_window(stdscr):
 
 
         filewin.box()
+
         # Recording Indicators
         start = "START"
         stop = "STOP"
@@ -324,21 +315,12 @@ def check_rolling():
     rec_sunrise_inprogress = False
     rec_sunset_inprogress = False
 
-    #logging.debug('Today is {0}'.format(today))
-    '''
-    if rec_sunrise:
-        logging.debug('Sunrise recording from {0} to {1} [UTC]'.format(sched_dict['rec_start_sunrise'], sched_dict['rec_stop_sunrise']))
-    if rec_sunset:
-        logging.debug('Sunset recording from {0} to {1} [UTC]'.format(sched_dict['rec_start_sunset'], sched_dict['rec_stop_sunset']))
-    '''
     if rec_sunrise and (sched_dict['rec_start_sunrise'] < now < sched_dict['rec_stop_sunrise']):
         rolling = True
         rec_sunrise_inprogress = True
-        #logging.debug('Recording from {0} to {1} [UTC]'.format(sched_dict['rec_start_sunrise'], sched_dict['rec_stop_sunrise']))
     elif rec_sunset and (sched_dict['rec_start_sunset'] < now < sched_dict['rec_stop_sunset']):
         rolling = True
         rec_sunset_inprogress = True
-        #logging.debug('Recording from {0} to {1} [UTC]'.format(sched_dict['rec_start_sunset'], sched_dict['rec_stop_sunset']))
 
     else:
         rolling = False
@@ -350,10 +332,8 @@ def check_rolling():
 def recswitch():
     while True:
         (rolling, rec_sunrise_inprogress, rec_sunset_inprogress) = check_rolling()
-        '''
         logging.debug('rolling: {0}\trec_sunrise_inprogress: {1}\trec_sunset_inprogress: {2}'.format(
             rolling, rec_sunrise_inprogress, rec_sunset_inprogress))
-        '''
         if rolling: tl_capture()
         else:
             time.sleep(1)
