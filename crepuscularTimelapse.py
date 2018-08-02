@@ -114,7 +114,6 @@ def disk_usage(path):
 def diskFree(working_dir):
     """Get disk usage percentage and turn it into percent free."""
     u_pct = getattr(disk_usage(working_dir), 'percent')
-    global free_pct
     free_pct = 100 - u_pct
     return free_pct
 
@@ -308,7 +307,7 @@ def draw_window(stdscr):
         with threadLock:
             sbar_imgcount = "| {0} Images Recorded Since Launch |".format(global_counter)
         free_pct = diskFree(working_dir)
-        sbar_dfree = "| {0}% Free Space |".format(free_pct)
+        sbar_dfree = "| {0}% Free Disk Space |".format(free_pct)
 
         stat_centered = (centered - (len(sbar_dfree) // 2))
         stat_rjust = (width - len(sbar_dfree)) - 1
