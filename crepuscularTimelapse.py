@@ -33,6 +33,7 @@ rec_sunrise = config["sunrise"]
 rec_sunset = config["sunset"]
 rec_dict = {'Sunrise':rec_sunrise, 'Sunset':rec_sunset}
 
+FREE_SPACE_LIMIT = config["diskspace_limit"]
 CAM_RESOLUTION = config["resolution"]
 camera = PiCamera()
 camera.resolution = (CAM_RESOLUTION)
@@ -49,7 +50,6 @@ logfile = config["logfile"]
 loglevel = config["loglevel"]
 headless = config["headless"]
 numeric_level = getattr(logging, loglevel.upper(), None)
-working_dir = ''
 today = datetime.date.today()
 
 fn_q = Queue.Queue()
@@ -59,6 +59,64 @@ global_counter = 0
 
 _QUIT = False
 
+
+disk_ntuple = namedtuple('partition',  'device mountpoint fstype')
+usage_ntuple = namedtuple('usage',  'total used free percent')
+
+
+class DiskFreeThreshold(Exception):
+    def __init__( self, working_dir ):
+        free_pct = diskFree(working_dir)
+        Exception.__init__(self, 'Free Diskspace Threshold Reached exception: %s%% free' % str(free_pct))
+
+def disk_partitions(all=False):
+    """Return all mountd partitions as a nameduple.
+        If all == False return phyisical partitions only.
+        """
+    phydevs = []
+    f = open("/proc/filesystems", "r")
+    for line in f:
+        if not line.startswith("nodev"):
+            phydevs.append(line.strip())
+
+    retlist = []
+    f = open('/etc/mtab', "r")
+    for line in f:
+        if not all and line.startswith('none'):
+            continue
+        fields = line.split()
+        device = fields[0]
+        mountpoint = fields[1]
+        fstype = fields[2]
+        if not all and fstype not in phydevs:
+            continue
+        if device == 'none':
+            device = ''
+        ntuple = disk_ntuple(device, mountpoint, fstype)
+        retlist.append(ntuple)
+    return retlist
+
+def disk_usage(path):
+    """Return disk usage associated with path."""
+    st = os.statvfs(path)
+    free = (st.f_bavail * st.f_frsize)
+    total = (st.f_blocks * st.f_frsize)
+    used = (st.f_blocks - st.f_bfree) * st.f_frsize
+    try:
+        percent = ret = (float(used) / total) * 100
+    except ZeroDivisionError:
+        percent = 0
+    # NB: the percentage is -5% than what shown by df due to
+    # reserved blocks that we are currently not considering:
+    # http://goo.gl/sWGbH
+    return usage_ntuple(total, used, free, round(percent, 1))
+
+def diskFree(working_dir):
+    """Get disk usage percentage and turn it into percent free."""
+    u_pct = getattr(disk_usage(working_dir), 'percent')
+    global free_pct
+    free_pct = 100 - u_pct
+    return free_pct
 
 def get_timestamp():
     today = datetime.date.today()
@@ -132,6 +190,7 @@ def draw_window(stdscr):
     file_rows, file_columns = filewin.getmaxyx()
     file_rows -= 1
     fn_list = []
+    working_dir = buildOutputDir()
     while not _QUIT:
 
         # erase instead of clear to avoid flicker
@@ -224,7 +283,6 @@ def draw_window(stdscr):
                 filewin.addstr(fn_row, 1, item)
                 fn_row += 1
 
-
         filewin.box()
 
         # Recording Indicators
@@ -249,7 +307,8 @@ def draw_window(stdscr):
         sbar_qmesg = "| Press q to exit |"
         with threadLock:
             sbar_imgcount = "| {0} Images Recorded Since Launch |".format(global_counter)
-        sbar_dfree = "| {0}% Free Space |"
+        free_pct = diskFree(working_dir)
+        sbar_dfree = "| {0}% Free Space |".format(free_pct)
 
         stat_centered = (centered - (len(sbar_dfree) // 2))
         stat_rjust = (width - len(sbar_dfree)) - 1
@@ -330,7 +389,10 @@ def check_rolling():
     return rolling, rec_sunrise_inprogress, rec_sunset_inprogress
 
 def recswitch():
-    while True:
+    #while True:
+    working_dir = buildOutputDir()
+    free_pct = diskFree(working_dir)
+    while free_pct > FREE_SPACE_LIMIT:
         (rolling, rec_sunrise_inprogress, rec_sunset_inprogress) = check_rolling()
         logging.debug('rolling: {0}\trec_sunrise_inprogress: {1}\trec_sunset_inprogress: {2}'.format(
             rolling, rec_sunrise_inprogress, rec_sunset_inprogress))
@@ -339,6 +401,8 @@ def recswitch():
             time.sleep(1)
         if _QUIT:
             break
+    else:
+        raise DiskFreeThreshold(working_dir)
 
     return
 
@@ -375,3 +439,7 @@ if __name__ == '__main__':
     except KeyboardInterrupt:
         print("Quit")
         rs.join()
+
+    except DiskFreeThreshold, exc:
+        print exc
+        sys.exit(1)
