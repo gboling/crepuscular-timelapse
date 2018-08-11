@@ -35,9 +35,11 @@ rec_dict = {'Sunrise':rec_sunrise, 'Sunset':rec_sunset}
 
 FREE_SPACE_LIMIT = config["diskspace_limit"]
 CAM_RESOLUTION = config["resolution"]
+still_fmt = config["still_fmt"]
 camera = PiCamera()
 camera.resolution = (CAM_RESOLUTION)
 tl_interval = config["tl_interval"]
+if still_fmt != 'jpeg': tl_interval = 0
 pre_roll = config["pre_roll"]
 post_roll = config["post_roll"]
 rolling = False
@@ -337,18 +339,21 @@ def tl_capture():
     sched_dict = set_time(today)
     working_dir = buildOutputDir()
     (roll, rec_sunrise_inprogress, rec_sunset_inprogress) = check_rolling()
+    fn_stub = '{timestamp:%Y%m%d}-{counter:04d}'
     if rec_sunrise_inprogress:
         working_dir_dawn = os.path.join(working_dir, 'dawn')
         if not os.path.exists(working_dir_dawn):
             os.mkdir(working_dir_dawn)
-        fn_format = os.path.join(working_dir_dawn, 'dawn-{timestamp:%Y%m%d}-{counter:04d}.jpg')
+        fn_ext = ('dawn' + fn_stub + '.' + still_fmt)
+        fn_format = os.path.join(working_dir_dawn, fn_ext)
     elif rec_sunset_inprogress:
         working_dir_dusk = os.path.join(working_dir, 'dusk')
         if not os.path.exists(working_dir_dusk):
             os.mkdir(working_dir_dusk)
-        fn_format = os.path.join(working_dir_dusk, 'dusk-{timestamp:%Y%m%d}-{counter:04d}.jpg')
+        fn_ext = ('dusk' + fn_stub + '.' + still_fmt)
+        fn_format = os.path.join(working_dir_dusk, fn_ext)
     for filename in enumerate(
-            camera.capture_continuous(fn_format)):
+            camera.capture_continuous(fn_format, format=still_fmt)):
         (index, fn) = filename
         (now, today) = get_timestamp()
         loc_now = datetime.datetime.now()
@@ -441,4 +446,5 @@ if __name__ == '__main__':
 
     except DiskFreeThreshold, exc:
         print exc
+        rs.join()
         sys.exit(1)
