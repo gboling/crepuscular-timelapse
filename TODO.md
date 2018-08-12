@@ -4,7 +4,7 @@
 - [x] improve formatting of output if run from CLI
 - [x] daemon mode
 - [x] Use timedir to organize images in ~/Pictures/timelapse
-- [ ] give image filetype choices
+- [x] give image filetype choices
 - [ ] better exposure handling
 - [ ] generate video
 - [ ] web interface
