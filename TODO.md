@@ -10,3 +10,4 @@
 - [ ] web interface
 - [ ] share options (facebook, google, youtube)
 - [ ] unit testing
+- [x] Extend UI info: resolution, image format
