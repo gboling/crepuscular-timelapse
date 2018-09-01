@@ -304,6 +304,11 @@ def draw_window(stdscr):
             stdscr.addstr(17, two_thirds_pos, rec_status, curses.color_pair(7))
 
 
+        # Image Info
+        rez_disp = ("Resolution: " + str(CAM_RESOLUTION))
+        still_fmt_disp = ("Still Image Format: " + still_fmt)
+        stdscr.addstr(18, two_thirds_pos, rez_disp, curses.color_pair(1))
+        stdscr.addstr(19, two_thirds_pos, still_fmt_disp, curses.color_pair(1))
         # Status Bar -- Bottom Line
         sbar_qmesg = "| Press q to exit |"
         with threadLock:
