@@ -12,3 +12,4 @@
 - [ ] unit testing
 - [x] Extend UI info: resolution, image format
 - [ ] Collect daily disk usage and get an average, calculate when space will run out
+- [ ] Port to Python 3
